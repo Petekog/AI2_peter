@@ -22,7 +22,7 @@ EVALUATE_TIMES: int = 10
 #TODO: add feature extraction class
 class EGreedy:
     Q = None
-    E = None
+    E = None # need
     epsilon_denominator = 0
     pick_e_greedy_times = 0
 
@@ -50,7 +50,7 @@ class EGreedy:
     def should_explore(self):
         return np.random.random() < (1 / self.epsilon_denominator)
 
-    # TODO:Less actions
+    # TODO:Less actions :
     def pick_action(self, state: int):
         self.epsilon_denominator += 0.00001
         if self.should_explore():
@@ -65,7 +65,7 @@ class EGreedy:
     def update_Qs(self, funct):
         # funct argument recieves (Q(s,a) , E(s,a))
         self.Q = funct(self.Q, self.E)
-
+    #
     # TODO:Change to w update
     def update_Es(self, funct):
 
@@ -118,7 +118,7 @@ class SarsaLambda:
             self.policy.update_Es(lambda e: GAMMA * LAMBDA * e)  # TODO: Update w instead -
 
     def evaluate(self) -> float:
-        #TODO: No need to change
+        #TODO: See the
 
         # Return : average EVALUATE_TIMES discounted returns over EVALUATE_STEP_NUM steps
         returns = 0.0

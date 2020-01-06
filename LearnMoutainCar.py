@@ -42,13 +42,17 @@ class Tiling:
 
 class Approximator:
 
-    def __init__(self):
+    def __init__(self,tile_grids_number=10,max_offset_coord = 0.5 , max_offset_speed = 0.3):
         self.min_pos = -1.2
         self.max_pos = 0.6
         self.min_speed = -0.07
         self.max_speed = 0.07
         # TODO: calc number
         self.number_of_features = 10
+        self.tiles_list = []
+
+    def create_tile_greeds(self,tile_grids_number,max_offset_coord , max_offset_speed):
+        for i in range(tile_grids_number):
 
     # TODO: implement
     def get_features(self, state, action):
