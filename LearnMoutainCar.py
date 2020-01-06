@@ -6,6 +6,7 @@ import gym
 # TODO: adjust parameters
 MAX_LEARNING_STEPS = 100000
 LEARNING_INTERVAL_SIZE = 10000  # Interval for learning before eval
+ACTION_NUM = 3
 GAMMA = 1
 LAMBDA = 0.8
 TRAIN_SESSION_NUM = 10
@@ -14,34 +15,46 @@ EVALUATE_TIMES: int = 10
 
 
 class Tiling:
-    action_num = 3
+    dim = 2
 
     def __init__(self, bin_sizes, lows, highs, offsets):
         self.bin_sizes = bin_sizes
-        self.lows = lows
-        self.highs = highs
-        self.bin_nums = []
-        for high, low, bin_size in zip(self.highs, self.lows, self.bin_sizes):
-            self.bin_nums.append(np.ceil((high - low) / bin_size))
+        self.lows = lows + offsets
+        self.highs = highs + offsets
+        self.bin_nums = np.zeros(Tiling.dim, dtype=np.int8)
+        for index in range(Tiling.dim):
+            self.bin_nums[index] = int(np.ceil((self.highs[index] - self.lows[index]) / self.bin_sizes[index]))
+        self.number_of_tiles_per_action = np.prod(self.bin_nums, dtype=int)
+        self.number_of_tiles = ACTION_NUM * self.number_of_tiles_per_action
 
     def get_tile_feature(self, state, action):
         # bins start from 0
+        tile = self.get_tile_number(state)
+        action_tile = action * self.number_of_tiles_per_action + tile
+        features = np.zeros(self.number_of_tiles)
+        features[action_tile] = 1
+        return features
+
+    def get_tile_number(self, state):
         bins = []
         for low, bin_size, s in zip(self.lows, self.bin_sizes, state):
-            bins.append(np.floor((s - low) / bin_size))
-        tile_feature = 0
-        bins_for_leir = 1
-        prev_bin = 0
-        for bin, bin_num in zip(bins, self.bin_nums):
-            tile_feature = tile_feature + prev_bin + (bin-1)
+            bins.append(int(np.floor((s - low) / bin_size)))
+        tile = bins[0] + (bins[1] * self.bin_nums[0])
+        return tile
 
     # return vector size 3 of vectors. every vector of size number of tiles*3
     def get_features_per_action_for_state(self, state):
-        return [[1], [2], [3]]
+        tile = self.get_tile_number(state)
+        features_per_action = [[], [], []]
+        for action in range(ACTION_NUM):
+            action_tile = action * self.number_of_tiles_per_action + tile
+            action_features = np.zeros(self.number_of_tiles)
+            action_features[action_tile] = 1
+            features_per_action[action] = action_features
+        return features_per_action
 
 
 class Approximator:
-
     def __init__(self):
         self.min_pos = -1.2
         self.max_pos = 0.6
