@@ -19,8 +19,8 @@ class Tiling:
 
     def __init__(self, bin_sizes, lows, highs, offsets):
         self.bin_sizes = bin_sizes
-        self.lows = lows + offsets
-        self.highs = highs + offsets
+        self.lows = np.add(lows, offsets)
+        self.highs = np.add(highs, offsets)
         # holds the size of the bins per dim
         self.bin_nums = np.zeros(Tiling.dim, dtype=np.int8)
         for index in range(Tiling.dim):
