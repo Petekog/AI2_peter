@@ -10,7 +10,7 @@ ACTION_NUM = 3
 GAMMA = 1
 LAMBDA = 0.8
 TRAIN_SESSION_NUM = 10
-EVALUATE_STEP_NUM = 100
+EVALUATE_STEP_NUM = 1000
 EVALUATE_TIMES: int = 10
 
 
@@ -22,7 +22,7 @@ class Tiling:
         self.lows = np.add(lows, offsets)
         self.highs = np.add(highs, offsets)
         # holds the size of the bins per dim
-        self.bin_nums = np.zeros(Tiling.dim, dtype=np.int8)
+        self.bin_nums = np.zeros(Tiling.dim)
         for index in range(Tiling.dim):
             self.bin_nums[index] = int(np.ceil((self.highs[index] - self.lows[index]) / self.bin_sizes[index]))
         self.number_of_tiles_per_action = np.prod(self.bin_nums, dtype=int)
@@ -33,7 +33,7 @@ class Tiling:
         tile = self.get_tile_number(state)
         action_tile = action * self.number_of_tiles_per_action + tile
         features = np.zeros(self.number_of_tiles)
-        features[action_tile] = 1
+        features[int(action_tile)] = 1
         return features
 
     def get_tile_number(self, state):
@@ -58,22 +58,52 @@ class Tiling:
 
 class Approximator:
 
-    def __init__(self,tile_grids_number=10,max_offset_coord = 0.5 , max_offset_speed = 0.3):
+    def __init__(self,tile_grids_number=0,max_offset_coord = 0.5 , max_offset_speed = 0.03):
 
         self.min_pos = -1.2
         self.max_pos = 0.6
         self.min_speed = -0.07
         self.max_speed = 0.07
-        # TODO: calc number
-        self.number_of_features = 10
+
+        self.max_offset_coord = max_offset_coord
+        self.max_offset_speed = max_offset_speed
+        self.number_of_greeds = tile_grids_number
         self.tiles_list = []
 
-    def create_tile_greeds(self,tile_grids_number,max_offset_coord , max_offset_speed):
+
+        self._create_tile_greeds(tile_grids_number,max_offset_coord,max_offset_speed)
+        self._count_tile_features()
+
+    def _create_tile_greeds(self,tile_grids_number,max_offset_coord , max_offset_speed):
+        tile_coord = 0.2
+        tile_speed = 0.03
+        main_grid = Tiling((tile_coord,tile_speed),(-1.3,-0.09),(0.7,0.09),(0,0))
+        self.tiles_list.append(main_grid)
+
+        secondary_lattice_init_low = (self.min_pos - max_offset_coord,self.min_speed - max_offset_speed)
+        secondary_lattice_init_high = (self.max_pos + max_offset_coord,self.max_speed + max_offset_speed)
         for i in range(tile_grids_number):
 
-    # TODO: implement
+            offset_coord = 2* max_offset_coord*np.random.uniform() - max_offset_coord
+            offset_speed = 2*max_offset_speed *np.random.uniform() - max_offset_speed
+
+            tile_lattice = Tiling((tile_coord,tile_speed),secondary_lattice_init_low,secondary_lattice_init_high,(offset_coord,offset_speed))
+            self.tiles_list.append((tile_lattice))
+
+
+
+    def _count_tile_features(self):
+        counter = 0
+        for tile_lattice in self.tiles_list:
+            counter += tile_lattice.number_of_tiles
+        self.number_of_features = counter
+
     def get_features(self, state, action):
-        return [state, action]
+        feature_vector = np.array([])
+        for tile_lattice in self.tiles_list:
+            features = tile_lattice.get_tile_feature(state,action)
+            feature_vector = np.concatenate([feature_vector,features],axis=None)
+        return feature_vector
 
     def get_feature_number(self):
         return self.number_of_features
@@ -81,7 +111,11 @@ class Approximator:
     # TODO: implement
     # return vector size 3 of vectors. every vector of size number of tiles*3*number_of_offsets
     def get_features_per_action_for_state(self, state):
-        return [[1], [2], [3]]
+        features_per_actions =[]
+        for action in range(ACTION_NUM):
+            features_per_actions.append (self.get_features(state,action))
+        return features_per_actions
+
 
 
 class EGreedyApproximatedValue:
@@ -91,7 +125,7 @@ class EGreedyApproximatedValue:
     epsilon_denominator = 0
 
     def __init__(self):
-        self.approximator = Approximator()
+        self.approximator = Approximator(0)
         self.feature_number = self.approximator.get_feature_number()
         # TODO: maybe smart init
         self.W = np.zeros(self.feature_number)
@@ -103,7 +137,7 @@ class EGreedyApproximatedValue:
         action_values = []
         for action_features in actions_features:
             action_value = np.dot(self.W, action_features)
-            action_values.add(action_value)
+            action_values.append(action_value)
         best_action = np.argmax(action_values)
         best_action_value = action_values[best_action]
         best_action_features = actions_features[best_action]
@@ -169,16 +203,19 @@ class SarsaLambda:
         # TODO: reimplement according to assignment
         # Return : average EVALUATE_TIMES discounted returns over EVALUATE_STEP_NUM steps
         returns = 0.0
+
         for _ in range(EVALUATE_TIMES):
+            counter = 0
             gamma_factor = 1
             observation = env.reset()
-            for _ in range(EVALUATE_STEP_NUM):
-                action = self.policy.pick_greedy_action_and_get_value_and_features(observation)
+            done = False
+            while not done and counter < EVALUATE_STEP_NUM:
+                action,_,_ = self.policy.pick_greedy_action_and_get_value_and_features(observation)
                 observation, reward, done, _ = env.step(action)
+                env.render()
                 returns += gamma_factor * reward
                 gamma_factor *= GAMMA
-                if done:
-                    observation = env.reset()
+                counter += 1
         return returns / EVALUATE_TIMES
 
 
