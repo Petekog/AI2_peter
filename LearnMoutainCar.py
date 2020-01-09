@@ -209,15 +209,14 @@ class SarsaLambda:
         # Return : average EVALUATE_TIMES discounted returns over EVALUATE_STEP_NUM steps
 
         done_counter = 0
-
+        session_sum = 0
         for _ in range(EVALUATE_TIMES):
             counter = 0
 
             observation = env.reset()
             done = False
             reward_sum = 0
-            for i in range(5):
-                env.step(2)
+
 
             while not done and counter < EVALUATE_STEP_NUM:
                 action,_,_ = self.policy.pick_greedy_action_and_get_value_and_features(observation)
@@ -226,12 +225,12 @@ class SarsaLambda:
                 reward_sum += reward
                 if done and reward_sum > -2000:
                     done_counter += 1
-                    print("step {}".format(counter))
+                    print("Arrived to the flag , step {}".format(counter))
 
-
+                session_sum += reward
                 counter += 1
         print (done_counter)
-        return done_counter / EVALUATE_TIMES
+        return session_sum / EVALUATE_TIMES
 
 
 def main_loop():
