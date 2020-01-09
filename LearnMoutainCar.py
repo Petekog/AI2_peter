@@ -8,8 +8,8 @@ MAX_LEARNING_STEPS = 100000
 LEARNING_INTERVAL_SIZE = 10000 # Interval for learning before eval
 ACTION_NUM = 3
 GAMMA = 1 # History influence
-LAMBDA = 0.8 # current result on previous states influence time
-TRAIN_SESSION_NUM = 5
+LAMBDA = 0.9 # current result on previous states influence time
+TRAIN_SESSION_NUM = 10
 EVALUATE_STEP_NUM = 2000
 EVALUATE_TIMES: int = 10
 
@@ -148,33 +148,9 @@ class EGreedyApproximatedValue:
     def should_explore(self):
         return np.random.random() < (1 / self.epsilon_denominator)
 
-    def pick_myacion(self,state):
-        action = self.global_action
-
-        if self.global_action == -2:
-            self.W = np.load("my_W.npy")
-            self.global_action = -1
-        if self.global_action == -1 :
-            return self.pick_action_and_get_value_and_features(state)
-        if self.global_action == -3:
-            action = self.global_action
-
-        action_features = self.approximator.get_features(state, action)
-        action_value = np.dot(self.W, action_features)
-
-        return action, action_value, action_features
-
-    def my_W (self):
-        min = np.min(self.W)
-        for i in range(len(self.W)):
-            if self.W[i] == 0:
-                self.W[i] = min + (-20000)
-
-
     def pick_action_and_get_value_and_features(self, state: int):
-        self.epsilon_denominator += 0.0005
-        # if self.epsilon_denominator > 4:
-        #     print("Almost greedy")
+        self.epsilon_denominator += 0.001
+
         if self.should_explore():
             action = np.random.randint(3)
             action_features = self.approximator.get_features(state, action)
@@ -204,41 +180,34 @@ class SarsaLambda:
     def train(self, steps_num: int):
         # Continue training for LEARNING_INTERVAL_SIZE steps from training step steps_num
         done = True
-        action_next = action_next_value = reward_sum = 0
+        action_next = action_next_value = 0
         for step in range(LEARNING_INTERVAL_SIZE):
             if done:
                 observation = env.reset()
                 self.policy.reset_E()
-
-                # env.render()
-                action, action_value, _= self.policy.pick_myacion(observation)
-                if done :
-                    print("Done!!!!!!!")
-                    #reward_sum = 0
-                #action, action_value, _ = self.policy.pick_action_and_get_value_and_features(observation)
-                # env.render()
+                action, action_value, _ = self.policy.pick_action_and_get_value_and_features(observation)
             else:
                 action = action_next
-                # observation = observation_next
+
                 action_value = action_next_value
 
             # Get R_t+1, O_t+1, A_t+1 and x(O_t+1,A_t+1)
             observation_next, reward, done, _ = env.step(action)
-            #action_next, action_next_value, features = self.policy.pick_action_and_get_value_and_features(observation_next)
-            action_next, action_next_value, features  = self.policy.pick_myacion(observation_next)
-            # env.render()
+            action_next, action_next_value, features = self.policy.pick_action_and_get_value_and_features(observation_next)
+
             steps_num += 1
-            reward_sum += reward
+
             # Update policy according to TD(lambda) formula
             delta = reward + GAMMA * action_next_value - action_value
-            alpha = 1 / math.log(steps_num + step + 2)
+            alpha = 1 / math.log((steps_num + step) + 2)
+
             self.policy.update_weights(lambda w, e: w + alpha * delta * e)
             self.policy.update_Es(lambda e: GAMMA * LAMBDA * e + features)
 
     def evaluate(self) -> float:
         # TODO: reimplement according to assignment
         # Return : average EVALUATE_TIMES discounted returns over EVALUATE_STEP_NUM steps
-        self.global_speeed = 2
+
         done_counter = 0
 
         for _ in range(EVALUATE_TIMES):
@@ -252,13 +221,11 @@ class SarsaLambda:
 
             while not done and counter < EVALUATE_STEP_NUM:
                 action,_,_ = self.policy.pick_greedy_action_and_get_value_and_features(observation)
-                # action = self.global_speeed
-
                 observation, reward, done, _ = env.step(action)
-                # env.render()
+
                 reward_sum += reward
                 if done and reward_sum > -2000:
-                    done_counter +=1
+                    done_counter += 1
                     print("step {}".format(counter))
 
 
@@ -290,8 +257,7 @@ def plot_errorbar(intervals, returns):
     for returns_arr in returns:
         means.append(np.mean(returns_arr))
         var.append(np.var(returns_arr))
-    # print("mean", means[-1])
-    # print("var", var[-1])
+
     plt.errorbar(intervals[1:], means, var, linestyle='None', marker='s')
     plt.xticks(intervals[1:])
     plt.show()
